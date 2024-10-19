@@ -48,3 +48,6 @@ if __name__ == "__main__":
 
     fileGrafo = sys.argv[1]
     invioDati(fileGrafo)
+
+# note:
+# la macchina di lab da un errore che qui non da

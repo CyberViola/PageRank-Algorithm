@@ -511,3 +511,6 @@ int main(int argc, char *argv[]) {
     sem_destroy(&sem_data_items);
     return 0;
 }
+
+// note:
+// il segnale SIGUSR1 viene ricevuto ma non stampa l'output

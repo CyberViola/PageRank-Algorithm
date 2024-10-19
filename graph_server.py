@@ -138,3 +138,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# note:
+# pkill a volte da problemi col prefisso ./
+# dopo aver eseguito pkill premere invio per terminare
