@@ -1,5 +1,5 @@
 # PageRank - Progetto Laboratorio 2
-Il progetto consiste nell'implementazione dell'algoritmo di Google PageRank in C, con anche un server ed un client in Python per l'esecuzione di PageRank.
+Il progetto consiste nell'implementazione dell'algoritmo di Google PageRank in C, con anche un server ed un client in Python per l'esecuzione di PageRank. (Linux)
 
 ## PageRank (C)
 L'algoritmo [PageRank](https://it.wikipedia.org/wiki/PageRank) è implementato utilizzando il modello produttore-consumatore ed un approccio multithread.
