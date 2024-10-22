@@ -8,6 +8,15 @@ import subprocess
 import struct
 import signal
 import sys
+import logging
+
+# configurazione file di log
+logFile = "server.log"
+logging.basicConfig(
+    filename=logFile,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 flagChiusura = threading.Event()
 
@@ -15,8 +24,8 @@ def operazioniServer(socketClient):
     # connessione e comunicazione col client
     try:
         # lettura nome file, e numero nodi e archi
-        header = socketClient.recv(8) # 8 bytes (4 n e 4 archiTot)
-        n, archiTot = struct.unpack('ii', header) # ricevimento dell'header
+        header = socketClient.recv(8)  # 8 bytes (4 n e 4 archiTot)
+        n, archiTot = struct.unpack('ii', header)  # ricevimento dell'header
 
         if n<=0 or archiTot<=0:
             print("Numero invalido di nodi o archi")
@@ -29,16 +38,20 @@ def operazioniServer(socketClient):
         tmpDir = tempfile.mkdtemp()
         tmpFilePath = os.path.join(tmpDir, fileName)
 
+        # aggiornamento file log
+        logging.info(f"Numero di nodi: {n}, File temporaneo: {tmpFilePath}")
+
         # inizia a scrivere interi nel file
-        archiValidi=0
+        archiValidi = 0
+        archiInvalidi = 0 
         with open(tmpFilePath, 'w') as tmpFile:
             tmpFile.write("% File temporaneo\n")
             tmpFile.write(f"{n} {n} 0\n")
 
             # lettura degli archi
-            archiRicevuti=0
-            while archiRicevuti<archiTot:
-                nodiArco=socketClient.recv(8) # 8 bytes (un arco è tra 2 nodi)
+            archiRicevuti = 0
+            while archiRicevuti < archiTot:
+                nodiArco = socketClient.recv(8)  # 8 bytes (un arco è tra 2 nodi)
                 if not nodiArco:
                     break
 
@@ -46,38 +59,41 @@ def operazioniServer(socketClient):
                 nu, ne = struct.unpack('ii', nodiArco)
                 if 1<=nu<=n and 1<=ne<=n:
                     tmpFile.write(f"{nu} {ne}\n")
-                    archiValidi+=1
-                archiRicevuti+=1
+                    archiValidi += 1
+                else:
+                    archiInvalidi += 1 
+                archiRicevuti += 1
+
+        # # aggiornamento file log
+        logging.info(f"File: {tmpFilePath}, Archi scartati: {archiInvalidi}, Archi ricevuti: {archiValidi}")
 
         # aggiornamento degli archi validi nel file temporaneo
         if archiValidi>0:
             with open(tmpFilePath, 'r+') as tmpFile:
-                linee = tmpFile.readlines() # lettura delle linee
+                linee = tmpFile.readlines()  # lettura delle linee
                 for i, linea in enumerate(linee):
                     if not linea.startswith('%'):
-                        linee[i] = f"{n} {n} {archiValidi}\n" # aggiornamento del numero di archi validi
+                        linee[i] = f"{n} {n} {archiValidi}\n"  # aggiornamento del numero di archi validi
                         break
                 # aggiorna il file (riscrivendo il contenuto)
                 tmpFile.seek(0)
                 tmpFile.writelines(linee)
-                tmpFile.truncate() # rimuove righe in eccesso
-
-        # stampa file temporaneo
-        # with open(tmpFilePath, 'r') as tmpFile:
-            #tmpFileContenuto = tmpFile.read()
-        # print(f"Contenuto file temporaneo:\n{tmpFileContenuto}")
+                tmpFile.truncate()  # rimuove righe in eccesso
 
         # esecuzione pagerank
-        exitCode=1
+        exitCode = 1
         if archiValidi>0:
             risultato = subprocess.run(
                 ["./pagerank", tmpFilePath],
                 capture_output=True,
                 text=True
             )
-            exitCode=risultato.returncode
+            exitCode = risultato.returncode
 
-            # stampa output 
+            # aggiornamento file log
+            logging.info(f"File: {tmpFilePath}, Exit code: {exitCode}")
+
+            # stampa output
             if exitCode==0:
                 output = risultato.stdout
                 linee = output.split('\n')
@@ -90,7 +106,7 @@ def operazioniServer(socketClient):
             socketClient.sendall(f"Exit code: {exitCode}\n{fileName} Nessun arco valido".encode())
 
     except Exception as errore:
-        print(f"Error: {errore}")
+        logging.error(f"Error during operation: {errore}")
     finally:
         socketClient.close()
 
@@ -113,20 +129,19 @@ def main():
     # gestione connessioni
     while not flagChiusura.is_set():
         try:
-            server.settimeout(1.0) # timeout per evitare che si blocchi con accept()
-            socketClient2, addr = server.accept() # accetta connessione dal client
-            threadClient = threading.Thread(target=operazioniServer, args=(socketClient2,)) # thread per gestire il client
+            server.settimeout(1.0)  # timeout per evitare che si blocchi con accept()
+            socketClient2, addr = server.accept()  # accetta connessione dal client
+            threadClient = threading.Thread(target=operazioniServer, args=(socketClient2,))  # thread per gestire il client
             threadClient.start()
         except socket.timeout:
             continue
         except Exception as errore:
-            print(f"Error: {errore}")
+            logging.error(f"Error: {errore}")
             break
 
     # chiusura server
     server.close()
-    print("Bye dal server") # premere INVIO successivamente
+    print("Bye dal server")  # premere INVIO successivamente
 
 if __name__ == "__main__":
     main()
-
