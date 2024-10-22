@@ -19,6 +19,7 @@ logging.basicConfig(
 )
 
 flagChiusura = threading.Event()
+listaThreads = []
 
 def operazioniServer(socketClient):
     # connessione e comunicazione col client
@@ -133,11 +134,16 @@ def main():
             socketClient2, addr = server.accept()  # accetta connessione dal client
             threadClient = threading.Thread(target=operazioniServer, args=(socketClient2,))  # thread per gestire il client
             threadClient.start()
+            listaThreads.append(threadClient) 
         except socket.timeout:
             continue
         except Exception as errore:
             logging.error(f"Error: {errore}")
             break
+
+    # attende terminazione threads
+    for thread in listaThreads:
+        thread.join()
 
     # chiusura server
     server.close()
