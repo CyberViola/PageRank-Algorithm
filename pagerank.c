@@ -511,5 +511,3 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-// note:
-// il segnale SIGUSR1 viene ricevuto ma non stampa l'output
