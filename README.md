@@ -13,4 +13,5 @@ vengono utilizzati semafori e mutex per poi gestire il lavoro dei threads.
 Il server ed il client comunicano tra di loro allo scopo di eseguire il calcolo del PageRank, principalmente il client si occupa dei dati, mentre il server delle operazioni.
 
 Client: legge i dati del grafo e li passa al server tramite un header, generando e facendo lavorare un numero di thread ausiliari pari al numero di file che gli vengono passati.
+
 Server: riceve i dati dal client tramite header, e ne gestisce la connessione tramite threads, cerca gli archi invalidi, li elimina, e si crea un file temporaneo con tutto il grafo senza gli archi invalidi su cui poi esegue PageRank, stampando le informazioni su un file di log.
