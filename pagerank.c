@@ -288,9 +288,9 @@ void *consumatori(void *arg) {
         }
         // prende i nodi dal buffer
         nu = a->buffer[*(a->pcindex)%Buf_size];
-        // *(a->pcindex) += 1;
+        *(a->pcindex) = (*(a->pcindex)+1) % (Buf_size*2);
         ne = a->buffer[(*(a->pcindex)+1)%Buf_size];
-        *(a->pcindex) += 2;
+        *(a->pcindex) = (*(a->pcindex)+1) % (Buf_size*2);
         pthread_mutex_unlock(a->mutex);
         sem_post(a->sem_free_slots);
 
@@ -510,4 +510,3 @@ int main(int argc, char *argv[]) {
     sem_destroy(&sem_data_items);
     return 0;
 }
-
