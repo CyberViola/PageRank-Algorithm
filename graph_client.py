@@ -3,6 +3,7 @@
 import socket
 import struct
 import sys
+import threading
 
 def invioDati(file):
     with open(file, 'r') as f:
@@ -10,21 +11,24 @@ def invioDati(file):
         while True:
             linea = f.readline()
             if linea.startswith('%'):
-                # ignora il commento
                 continue
             else:
-                # prende i valori
                 n, _, archiTot = map(int, linea.strip().split())
-                # print(f"nodi: {n}, archi: {archiTot}") 
                 break
 
         # connessione al server
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect(("127.0.0.1", 56646))
 
-        # invio del numero di nodi e archi (2 interi)
-        header = struct.pack('ii', n, archiTot)  # crea un header con i dati in binario
-        client.sendall(header) # invio al server
+        # invio del numero di nodi e archi
+        header = struct.pack('ii', n, archiTot)
+        client.sendall(header)
+
+        # invio del nome del file
+        fileNameEncoded = file.encode()
+        fileNameLen = struct.pack('I', len(fileNameEncoded))
+        client.sendall(fileNameLen)
+        client.sendall(fileNameEncoded)
 
         # lettura ed invio degli archi
         archiInviati = 0
@@ -32,22 +36,31 @@ def invioDati(file):
             nu, ne = map(int, linea.strip().split())
             nodiArco = struct.pack('ii', nu, ne)
             client.sendall(nodiArco)
-            archiInviati+=1
-        
-        # print(f"archi inviati: {archiInviati}")
+            archiInviati += 1
+
+        # attesa della risposta dal server
+        output = client.recv(4096).decode()  # ricezione dell'output dal server
+        print(f"{file} {output}")  # stampa l'output con il nome del file
 
         # chiusura connessione
         client.close()
+        print(f"{file} Bye")
 
-
-if __name__ == "__main__":
+def main():
     # lettura argomenti
-    if len(sys.argv)!=2:
+    if len(sys.argv) < 2:
         print("Errore: numero di argomenti errato")
         sys.exit(1)
 
-    fileGrafo = sys.argv[1]
-    invioDati(fileGrafo)
+    # creazione di un thread per ogni file
+    threads = []
+    for fileGrafo in sys.argv[1:]:
+        thread = threading.Thread(target=invioDati, args=(fileGrafo,))
+        threads.append(thread)
+        thread.start() # avvio threads
 
-# note:
-# la macchina di lab da un errore che qui non da
+    for thread in threads:
+        thread.join()  # attende che tutti i thread finiscano
+
+if __name__ == "__main__":
+    main()
