@@ -254,6 +254,7 @@ double *pagerank(grafo *g, double d, double eps, int maxiter, int taux, int *num
 
         for (int i=0; i<N; i++) {
             X[i] = X1[i];
+            stato.vettoreX[i] = X[i];
         }
 
         iter++;
@@ -482,7 +483,7 @@ int main(int argc, char *argv[]) {
     }
     printf("Sum of ranks: %.4f\n", sumRanks);
 
-    // stampa dei nodi  con rank più alto
+    // stampa dei nodi con rank più alto
     printf("Top %d nodes:\n", K);
     for (int i=1; i<=K && i<=g.N; i++) {
         int maxIndex = 0;
