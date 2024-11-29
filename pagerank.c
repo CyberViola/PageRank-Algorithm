@@ -295,10 +295,6 @@ void *consumatori(void *arg) {
         // controlla che siano finiti i dati da elaborare
         if (*(a->fineDati)) break; 
         if (nu==-1 && ne==-1) break;
-        if (nu<0 || nu>=a->g->N || ne<0 || ne>=a->g->N) {
-            fprintf(stderr, "Errore qui: Nodo non valido: nu=%d, ne=%d\n", nu, ne);
-            exit(EXIT_FAILURE);
-        }
         if (nu!=ne) {
             a->g->out[nu]++;
             // verifica la presenza dell'arco
@@ -465,7 +461,7 @@ int main(int argc, char *argv[]) {
             nodiDeadend++;
         }
     }
-    printf("Number of dead-fine nodes: %d\n", nodiDeadend);
+    printf("Number of dead-end nodes: %d\n", nodiDeadend);
     printf("Number of valid arcs: %d\n", numArchi);
     if (numiter==M) {
         printf("Did not converge after %d iterations\n", M);
