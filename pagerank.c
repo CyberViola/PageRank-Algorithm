@@ -296,7 +296,7 @@ void *consumatori(void *arg) {
         if (*(a->fineDati)) break; 
         if (nu==-1 && ne==-1) break;
         if (nu<0 || nu>=a->g->N || ne<0 || ne>=a->g->N) {
-            fprintf(stderr, "Errore: Nodo non valido: nu=%d, ne=%d\n", nu, ne);
+            fprintf(stderr, "Errore qui: Nodo non valido: nu=%d, ne=%d\n", nu, ne);
             exit(EXIT_FAILURE);
         }
         if (nu!=ne) {
