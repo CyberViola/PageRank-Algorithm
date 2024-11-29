@@ -295,6 +295,10 @@ void *consumatori(void *arg) {
         // controlla che siano finiti i dati da elaborare
         if (*(a->fineDati)) break; 
         if (nu==-1 && ne==-1) break;
+        if (nu<0 || nu>=a->g->N || ne<0 || ne>=a->g->N) {
+            fprintf(stderr, "Errore: Nodo non valido: nu=%d, ne=%d\n", nu, ne);
+            exit(EXIT_FAILURE);
+        }
         if (nu!=ne) {
             a->g->out[nu]++;
             // verifica la presenza dell'arco
