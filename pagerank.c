@@ -224,15 +224,14 @@ void *consumatori(void *arg) {
     while (true) {
         sem_wait(a->sem_data_items);
         pthread_mutex_lock(a->mutex);
-        if (*(a->pcindex)<0 || *(a->pcindex) >= Buf_size) {
+        if (*(a->pcindex)<0 || *(a->pcindex) >= Buf_size*2) {
             pthread_mutex_unlock(a->mutex);
             erroreInput("Errore: Indice del buffer non valido.\n");
         }
         // prende i nodi dal buffer
-    nu = a->buffer[*(a->pcindex)%(Buf_size)];
-    *(a->pcindex) = (*(a->pcindex) +1)%(Buf_size);
-    ne = a->buffer[*(a->pcindex)%(Buf_size)];
-    *(a->pcindex) = (*(a->pcindex)+1)%(Buf_size);
+        nu = a->buffer[(*(a->pcindex)*2) % (Buf_size * 2)];
+        ne = a->buffer[(*(a->pcindex)*2 + 1) % (Buf_size * 2)];
+        *(a->pcindex) = (*(a->pcindex)+1) % Buf_size;
         pthread_mutex_unlock(a->mutex);
         sem_post(a->sem_free_slots);
 
@@ -311,14 +310,14 @@ int main(int argc, char *argv[]) {
 
     // inizializzazione buffer e semafori
     int pcindex = 0;
-    int buffer[Buf_size];
+    int buffer[Buf_size*2];
     pthread_t t[T];
     datiConsumatori a[T];
     bool fineDati = false;
     pthread_mutex_t mutex;
     sem_t sem_free_slots, sem_data_items;
     pthread_mutex_init(&mutex, NULL);
-    sem_init(&sem_free_slots, 0, Buf_size);
+    sem_init(&sem_free_slots, 0, Buf_size*2);
     sem_init(&sem_data_items, 0, 0);
 
     // inizializzaizione il gestore dei segnali
@@ -359,15 +358,14 @@ int main(int argc, char *argv[]) {
         if (ni>=0 && ni<g.N && nj>=0 && nj<g.N) {
             sem_wait(&sem_free_slots);
             pthread_mutex_lock(&mutex);
-            buffer[pcindex % (Buf_size)] = ni;
-            pcindex++;
-            buffer[pcindex % (Buf_size)] = nj;
+            buffer[(pcindex*2) % (Buf_size*2)] = ni;
+            buffer[(pcindex*2+1) % (Buf_size*2)] = nj;
             pcindex++;
             pthread_mutex_unlock(&mutex);
             sem_post(&sem_data_items);
             archi++;
         } else {
-            erroreInput("Errore: archi non validi.\n");
+            erroreInput("Errore: Archi non validi.\n");
         }
     }
 
@@ -378,8 +376,8 @@ int main(int argc, char *argv[]) {
     for (int i=0; i<T; i++) {
         sem_wait(&sem_free_slots);
         pthread_mutex_lock(&mutex);
-        buffer[pcindex++ % (Buf_size)] = -1;
-        buffer[pcindex++ % (Buf_size)] = -1;
+        buffer[pcindex++ % (Buf_size*2)] = -1;
+        buffer[pcindex++ % (Buf_size*2)] = -1;
         pthread_mutex_unlock(&mutex);
         sem_post(&sem_data_items);
     }
