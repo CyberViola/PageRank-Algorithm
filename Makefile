@@ -7,7 +7,7 @@ LDLIBS=-lm -lrt -pthread
 EXEC=pagerank
 
 # file sorgente
-SRCS=pagerank.c 
+SRCS=pagerankGiusto.c 
 
 # file oggetto
 OBJS=$(SRCS:.c=.o)
