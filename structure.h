@@ -50,5 +50,3 @@ typedef struct {
 } statoProgramma;
 
 extern statoProgramma stato;
-
-void gestoreSegnale(int s);
