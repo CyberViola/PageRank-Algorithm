@@ -1,13 +1,16 @@
 # definizione del compilatore e dei flag di compilazione
 CC=gcc
-CFLAGS=-std=c11 -Wall -g -O -pthread 
+CFLAGS=-std=c11 -Wall -g -O -pthread
 LDLIBS=-lm -lrt -pthread
 
 # nome dell'eseguibile da creare
 EXEC=pagerank
 
 # file sorgente
-SRCS=pagerank.c
+SRCS=pagerank.c xerrori.c
+
+# file intestazione
+HEADERS=structure.h xerrori.h
 
 # file oggetto
 OBJS=$(SRCS:.c=.o)
@@ -20,7 +23,7 @@ $(EXEC): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # regola per creare file oggetto da file sorgente
-%.o: %.c
+%.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $<
 
 # regola per pulire file oggetto e eseguibile
