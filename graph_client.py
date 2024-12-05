@@ -64,5 +64,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# in caso di errore con comando ./graph_client.py 21archi.mtx rimandarlo una seconda volta
