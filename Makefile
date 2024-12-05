@@ -7,10 +7,10 @@ LDLIBS=-lm -lrt -pthread
 EXEC=pagerank
 
 # file sorgente
-SRCS=pagerank.c operations.c xerrori.c
+SRCS=pagerank.c xerrori.c
 
 # file intestazione
-HEADERS=operations.h xerrori.h
+HEADERS=structure.h xerrori.h
 
 # file oggetto
 OBJS=$(SRCS:.c=.o)
