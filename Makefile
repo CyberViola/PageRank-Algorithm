@@ -7,7 +7,10 @@ LDLIBS=-lm -lrt -pthread
 EXEC=pagerank
 
 # file sorgente
-SRCS=pagerankGiusto.c 
+SRCS=pagerank.c xerrori.c
+
+# file intestazione
+HEADERS=structure.h xerrori.h
 
 # file oggetto
 OBJS=$(SRCS:.c=.o)
@@ -20,7 +23,7 @@ $(EXEC): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # regola per creare file oggetto da file sorgente
-%.o: %.c
+%.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $<
 
 # regola per pulire file oggetto e eseguibile
