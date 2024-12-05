@@ -2,20 +2,67 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdbool.h>
+#include <assert.h>
+#include <string.h>
+#include <semaphore.h>
+#include <pthread.h>
 #include <math.h>
 #include <getopt.h>
 #include <signal.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include "structure.h"
-#include "xerrori.h"
 
 #define Buf_size 10
 
+typedef struct {
+    int *arrayNodi; // array di nodi con archi entranti
+    int numArchi; // numero di archi entranti
+    int maxDim; // dimensione masssima dell'array
+} inmap;
+
+typedef struct {
+    int N; // numero dei nodi del grafo
+    int *out; // array con il numero di archi uscenti da ogni nodo
+    inmap *in; // array con gli insiemi di archi entranti in ogni nodo
+} grafo;
+
+typedef struct {
+    grafo *g;
+    double *X; // vettore X
+    double *X1; // vettore X1
+    double *Y; // vettore Y
+    double d; // damping factor
+    double damping_factor; // damping factor calcolato
+    int inizio; // inizio del thread
+    int fine; // fine del
+} datiThreads;
+
+typedef struct {
+    grafo *g;
+    int *buffer;
+    int *pcindex;
+    bool *fineDati; // fine dati nel buffer
+    pthread_mutex_t *mutex; // mutex
+    sem_t *sem_free_slots; // semaforo
+    sem_t *sem_data_items; // semaforo
+    int taux; // numero thread ausiliari
+    double d; // damping factor (ridichiarato)
+    int maxiter; // numero massimo di iterazioni
+    double eps; // tolleranza iteraizioni
+    int *X; // vettore X (ridichiarato)
+    int iter; // contatore iterazioni
+} datiConsumatori;
+
+typedef struct {
+    pthread_mutex_t signal_mutex; // mutex
+    bool continua; // se il programma deve continuare
+    int iterazione; // iterazione
+    double *vettoreX; // vettore X
+    int N; // numero di nodi (ridichiarato)
+} statoProgramma;
+
 statoProgramma stato;
+
 
 // gestione del segnale 
 void gestoreSegnale(int s) {
@@ -41,7 +88,8 @@ void gestoreSegnale(int s) {
 void lettura(const char *fileinput, grafo *g, int *numArchi) {
     FILE *file = fopen(fileinput, "r");
     if (file==NULL) {
-        erroreFile("Errore apertura file");
+        perror("Errore apertura file");
+        exit(EXIT_FAILURE);
     }
 
     char linea[100];
@@ -56,7 +104,8 @@ void lettura(const char *fileinput, grafo *g, int *numArchi) {
             if (!lineaDati) {
                 // lettura della linea contenente il numero di nodi ed archi
                 if (sscanf(linea, "%d %d %d", &r, &c, &n)!=3) {
-                    erroreInput("Errore: Input non valido.\n");
+                    fprintf(stderr, "Errore: Input non valido.\n");
+                    exit(EXIT_FAILURE);
                 }
                 lineaDati = true;
 
@@ -64,7 +113,8 @@ void lettura(const char *fileinput, grafo *g, int *numArchi) {
                 g->out = malloc(g->N*sizeof(int)); // archi uscenti
                 g->in = malloc(g->N*sizeof(inmap)); // archi entranti
                 if (g->out==NULL || g->in==NULL) {
-                    erroreMemoria("Errore di allocazione memoria per g->out o g->in");
+                    perror("Errore di allocazione memoria per g->out o g->in");
+                    exit(EXIT_FAILURE);
                 }
 
                 // per ogni nodo si inizializza tutto
@@ -79,12 +129,14 @@ void lettura(const char *fileinput, grafo *g, int *numArchi) {
                 int i = 0; // nodo 1
                 int j = 0; // nodo 2
                 if (sscanf(linea, "%d %d", &i, &j)!=2) {
-                    erroreInput("Errore: Input non valido.\n");
+                    fprintf(stderr, "Errore: Input non valido.\n");
+                    exit(EXIT_FAILURE);
                 }
                 i--;
                 j--;
                 if (i<0 || i>=g->N || j<0 || j>=g->N) {
-                    erroreInput("Errore: Archi non validi.\n");
+                    fprintf(stderr, "Errore: Archi non validi.\n");
+                    exit(EXIT_FAILURE);
                 }
 
                 if (i!=j) {  
@@ -103,7 +155,8 @@ void lettura(const char *fileinput, grafo *g, int *numArchi) {
                             g->in[j].maxDim = (g->in[j].maxDim==0) ? 1 : g->in[j].maxDim*2;
                             g->in[j].arrayNodi = realloc(g->in[j].arrayNodi, g->in[j].maxDim*sizeof(int));
                             if (g->in[j].arrayNodi==NULL) {
-                                erroreMemoria("Errore realloc");
+                                perror("Errore realloc");
+                                exit(EXIT_FAILURE);
                             }
                         }
                         g->in[j].arrayNodi[g->in[j].numArchi++]=i;
@@ -227,18 +280,15 @@ void *consumatori(void *arg) {
         sem_wait(a->sem_data_items);
         pthread_mutex_lock(a->mutex);
         if (*(a->pcindex)<0 || *(a->pcindex) >= Buf_size*2) {
+            fprintf(stderr, "Errore: Indice del buffer non valido: %d\n", *(a->pcindex));
             pthread_mutex_unlock(a->mutex);
-            erroreInput("Errore: Indice del buffer non valido.\n");
+            exit(EXIT_FAILURE);
         }
         // prende i nodi dal buffer
-    nu = a->buffer[*(a->pcindex) % (Buf_size*2)];
-    *(a->pcindex) = (*(a->pcindex) +1) % (Buf_size*2);
-    if (*(a->pcindex)<0 || *(a->pcindex) >= Buf_size*2) {
-        pthread_mutex_unlock(a->mutex);
-        erroreInput("Errore: Indice del buffer non valido.\n");
-    }
-    ne = a->buffer[*(a->pcindex) % (Buf_size*2)];
-    *(a->pcindex) = (*(a->pcindex)+1) % (Buf_size*2);
+        nu = a->buffer[*(a->pcindex)%Buf_size*2];
+        *(a->pcindex) = (*(a->pcindex)+1)%(Buf_size*2);
+        ne = a->buffer[(*(a->pcindex)+1)%Buf_size*2];
+        *(a->pcindex) = (*(a->pcindex)+1)%(Buf_size*2);
         pthread_mutex_unlock(a->mutex);
         sem_post(a->sem_free_slots);
 
@@ -246,7 +296,8 @@ void *consumatori(void *arg) {
         if (*(a->fineDati)) break; 
         if (nu==-1 && ne==-1) break;
         if (nu<0 || nu>=a->g->N || ne<0 || ne>=a->g->N) {
-            erroreInput("Errore: Nodo non valido.");
+            fprintf(stderr, "Errore: Nodo non valido: nu=%d, ne=%d\n", nu, ne);
+            exit(EXIT_FAILURE);
         }
         if (nu!=ne) {
             a->g->out[nu]++;
@@ -264,7 +315,8 @@ void *consumatori(void *arg) {
                     a->g->in[ne].maxDim = (a->g->in[ne].maxDim==0) ? 1 : a->g->in[ne].maxDim*2;
                     a->g->in[ne].arrayNodi = realloc(a->g->in[ne].arrayNodi, a->g->in[ne].maxDim*sizeof(int));
                     if (a->g->in[ne].arrayNodi==NULL) {
-                        erroreMemoria("Errore realloc");
+                        perror("Errore realloc");
+                        exit(EXIT_FAILURE);
                     }
                 }
                 a->g->in[ne].arrayNodi[a->g->in[ne].numArchi++] = nu; 
@@ -301,12 +353,14 @@ int main(int argc, char *argv[]) {
                 T = atoi(optarg);
                 break;
             default:
-                erroreFile("Utilizzo: nome programma [-k K] [-m M] [-d D] [-e E] [-t T] file input.\n");
+                fprintf(stderr, "Utilizzo: %s [-k K] [-m M] [-d D] [-e E] [-t T] infile\n", argv[0]);
+                exit(EXIT_FAILURE);
         }
     }
 
     if (optind >= argc) {
-        erroreFile("File input assente\n");
+        fprintf(stderr, "File input assente\n");
+        exit(EXIT_FAILURE);
     }
 
     // lettura del grafo
@@ -331,7 +385,8 @@ int main(int argc, char *argv[]) {
     pthread_mutex_init(&stato.signal_mutex, NULL);
     stato.vettoreX = malloc(g.N*sizeof(double));
     if (signal(SIGUSR1, gestoreSegnale)==SIG_ERR) {
-        erroreSegnale("Errore nella gestione del segnale.");
+        perror("Errore nella gestione del segnale");
+        exit(EXIT_FAILURE);
     }
 
     // creazione threads consumatori
@@ -353,7 +408,8 @@ int main(int argc, char *argv[]) {
     // apertura file
     FILE *file = fopen(fileinput, "r");
     if (file == NULL) {
-        erroreFile("Errore apertura file.");
+        perror("Errore apertura file");
+        exit(EXIT_FAILURE);
     }
 
     // lettura dati
@@ -373,7 +429,8 @@ int main(int argc, char *argv[]) {
             sem_post(&sem_data_items);
             archi++;
         } else {
-            erroreInput("Errore: archi non validi.\n");
+            fprintf(stderr, "Errore: archi non validi.\n");
+            exit(EXIT_FAILURE);
         }
     }
 
