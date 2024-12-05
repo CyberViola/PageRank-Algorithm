@@ -229,10 +229,10 @@ void *consumatori(void *arg) {
             erroreInput("Errore: Indice del buffer non valido.\n");
         }
         // prende i nodi dal buffer
-    nu = a->buffer[*(a->pcindex)%(Buf_size*2)];
-    *(a->pcindex) = (*(a->pcindex) +1)%(Buf_size*2);
-    ne = a->buffer[*(a->pcindex)%(Buf_size*2)];
-    *(a->pcindex) = (*(a->pcindex)+1)%(Buf_size*2);
+    nu = a->buffer[*(a->pcindex)%(Buf_size)];
+    *(a->pcindex) = (*(a->pcindex) +1)%(Buf_size);
+    ne = a->buffer[*(a->pcindex)%(Buf_size)];
+    *(a->pcindex) = (*(a->pcindex)+1)%(Buf_size);
         pthread_mutex_unlock(a->mutex);
         sem_post(a->sem_free_slots);
 
