@@ -311,7 +311,7 @@ int main(int argc, char *argv[]) {
 
     // inizializzazione buffer e semafori
     int pcindex = 0;
-    int buffer[Buf_size*2];
+    int buffer[Buf_size];
     pthread_t t[T];
     datiConsumatori a[T];
     bool fineDati = false;
@@ -359,9 +359,9 @@ int main(int argc, char *argv[]) {
         if (ni>=0 && ni<g.N && nj>=0 && nj<g.N) {
             sem_wait(&sem_free_slots);
             pthread_mutex_lock(&mutex);
-            buffer[pcindex % (Buf_size*2)] = ni;
+            buffer[pcindex % (Buf_size)] = ni;
             pcindex++;
-            buffer[pcindex % (Buf_size*2)] = nj;
+            buffer[pcindex % (Buf_size)] = nj;
             pcindex++;
             pthread_mutex_unlock(&mutex);
             sem_post(&sem_data_items);
@@ -378,8 +378,8 @@ int main(int argc, char *argv[]) {
     for (int i=0; i<T; i++) {
         sem_wait(&sem_free_slots);
         pthread_mutex_lock(&mutex);
-        buffer[pcindex++ % (Buf_size*2)] = -1;
-        buffer[pcindex++ % (Buf_size*2)] = -1;
+        buffer[pcindex++ % (Buf_size)] = -1;
+        buffer[pcindex++ % (Buf_size)] = -1;
         pthread_mutex_unlock(&mutex);
         sem_post(&sem_data_items);
     }
