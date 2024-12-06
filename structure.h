@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define Buf_size 1024
+#define Buf_size 128
 
 typedef struct {
     int *arrayNodi; // array di nodi con archi entranti
