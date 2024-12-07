@@ -2,8 +2,6 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define Buf_size 16
-
 typedef struct {
     int *arrayNodi; // array di nodi con archi entranti
     int numArchi; // numero di archi entranti

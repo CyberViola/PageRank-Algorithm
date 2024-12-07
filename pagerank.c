@@ -14,6 +14,7 @@
 #include "xerrori.h"
 
 statoProgramma stato;
+int bufferDim;
 
 // gestione del segnale 
 void gestoreSegnale(int s) {
@@ -45,6 +46,7 @@ void lettura(const char *fileinput, grafo *g, int *numArchi) {
     char linea[100];
     int r, c, n;
     bool lineaDati = false; // per la lettura della matrice
+    *numArchi = 0;
 
     while (fgets(linea, sizeof(linea), file)!=NULL) {
         // ignora le linee che iniziano con %
@@ -224,15 +226,15 @@ void *consumatori(void *arg) {
     while (true) {
         sem_wait(a->sem_data_items);
         pthread_mutex_lock(a->mutex);
-        if (*(a->pcindex)<0 || *(a->pcindex) >= Buf_size*2) {
+        if (*(a->pcindex)<0 || *(a->pcindex) >= bufferDim) {
             pthread_mutex_unlock(a->mutex);
             erroreInput("Errore: Indice del buffer non valido.\n");
         }
         // prende i nodi dal buffer
-    nu = a->buffer[*(a->pcindex)%(Buf_size*2)];
-    *(a->pcindex) = (*(a->pcindex) +1)%(Buf_size*2);
-    ne = a->buffer[*(a->pcindex)%(Buf_size*2)];
-    *(a->pcindex) = (*(a->pcindex)+1)%(Buf_size*2);
+    nu = a->buffer[*(a->pcindex)%(bufferDim)];
+    *(a->pcindex) = (*(a->pcindex) +1)%(bufferDim);
+    ne = a->buffer[*(a->pcindex)%(bufferDim)];
+    *(a->pcindex) = (*(a->pcindex)+1)%(bufferDim);
         pthread_mutex_unlock(a->mutex);
         sem_post(a->sem_free_slots);
 
@@ -310,15 +312,19 @@ int main(int argc, char *argv[]) {
     lettura(fileinput, &g, &numArchi);
 
     // inizializzazione buffer e semafori
+    bufferDim = numArchi*2;
+    int *buffer = malloc(bufferDim*sizeof(int));
+    if (buffer == NULL) {
+        erroreMemoria("Errore allocazione buffer.");
+    }
     int pcindex = 0;
-    int buffer[Buf_size*2];
     pthread_t t[T];
     datiConsumatori a[T];
     bool fineDati = false;
     pthread_mutex_t mutex;
     sem_t sem_free_slots, sem_data_items;
     pthread_mutex_init(&mutex, NULL);
-    sem_init(&sem_free_slots, 0, Buf_size*2);
+    sem_init(&sem_free_slots, 0, bufferDim);
     sem_init(&sem_data_items, 0, 0);
 
     // inizializzaizione il gestore dei segnali
@@ -359,9 +365,9 @@ int main(int argc, char *argv[]) {
         if (ni>=0 && ni<g.N && nj>=0 && nj<g.N) {
             sem_wait(&sem_free_slots);
             pthread_mutex_lock(&mutex);
-            buffer[pcindex % (Buf_size*2)] = ni;
+            buffer[pcindex % bufferDim] = ni;
             pcindex++;
-            buffer[pcindex % (Buf_size*2)] = nj;
+            buffer[pcindex % bufferDim] = nj;
             pcindex++;
             pthread_mutex_unlock(&mutex);
             sem_post(&sem_data_items);
@@ -378,8 +384,10 @@ int main(int argc, char *argv[]) {
     for (int i=0; i<T; i++) {
         sem_wait(&sem_free_slots);
         pthread_mutex_lock(&mutex);
-        buffer[pcindex++ % (Buf_size*2)] = -1;
-        buffer[pcindex++ % (Buf_size*2)] = -1;
+        buffer[pcindex % bufferDim] = -1;
+        pcindex++;
+        buffer[pcindex % bufferDim] = -1;
+        pcindex++;
         pthread_mutex_unlock(&mutex);
         sem_post(&sem_data_items);
     }
@@ -433,6 +441,7 @@ int main(int argc, char *argv[]) {
     }
 
     // libera memoria e distruzione semafori e mutex
+    free(buffer);
     for (int i=0; i<g.N; i++) {
         free(g.in[i].arrayNodi);
     }
