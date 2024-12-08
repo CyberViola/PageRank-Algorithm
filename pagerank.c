@@ -232,7 +232,7 @@ void *consumatori(void *arg) {
         }
         // prende i nodi dal buffer
     nu = a->buffer[*(a->pcindex)%(bufferDim)];
-    *(a->pcindex) = (*(a->pcindex) +1)%(bufferDim);
+    *(a->pcindex) = (*(a->pcindex)+1)%(bufferDim);
     ne = a->buffer[*(a->pcindex)%(bufferDim)];
     *(a->pcindex) = (*(a->pcindex)+1)%(bufferDim);
         pthread_mutex_unlock(a->mutex);
@@ -318,6 +318,10 @@ int main(int argc, char *argv[]) {
     if (buffer == NULL) {
         erroreMemoria("Errore allocazione buffer.");
     }
+    // Inizializzazione del buffer con valori noti (-2)
+    for (int i = 0; i < bufferDim; i++) {
+        buffer[i] = -2;
+    }
     int pcindex = 0;
     pthread_t t[T];
     datiConsumatori a[T];
@@ -361,21 +365,34 @@ int main(int argc, char *argv[]) {
     int archi = 0;
     int ni, nj;
     while (fscanf(file, "%d %d", &ni, &nj)==2) {
+        // DEBUG: Stato del buffer prima della scrittura
+        printf("Buffer stato [");
+        for (int i = 0; i < bufferDim; i++) {
+            printf("%d ", buffer[i]);
+        }
+        printf("], pcindex: %d\n", pcindex);
         ni--;
         nj--;
         if (ni>=0 && ni<g.N && nj>=0 && nj<g.N) {
             sem_wait(&sem_free_slots);
             pthread_mutex_lock(&mutex);
-            buffer[pcindex % bufferDim] = ni;
-            pcindex++;
-            buffer[pcindex % bufferDim] = nj;
-            pcindex++;
+            pcindex = (pcindex + 1) % bufferDim;
+            buffer[pcindex] = ni; // Scrive il nodo uscente
+            pcindex = (pcindex + 1) % bufferDim;
+            buffer[pcindex] = nj; // Scrive il nodo entrante
             pthread_mutex_unlock(&mutex);
             sem_post(&sem_data_items);
             archi++;
         } else {
+            printf("Valore non valido letto: ni=%d, nj=%d\n", ni, nj);
             erroreInput("Errore: Archi non validi.\n");
         }
+        // DEBUG: Stato del buffer prima della scrittura
+        printf("Buffer stato [");
+        for (int i = 0; i < bufferDim; i++) {
+            printf("%d ", buffer[i]);
+        }
+        printf("], pcindex: %d\n", pcindex);
     }
 
     // chiusura file
