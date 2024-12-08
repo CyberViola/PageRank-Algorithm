@@ -222,6 +222,7 @@ void *consumatori(void *arg) {
 
     int nu; // nodo i con arco uscente
     int ne; // nodo j con arco entrante
+    int ccindex = 0;
 
     while (true) {
         sem_wait(a->sem_data_items);
@@ -230,13 +231,21 @@ void *consumatori(void *arg) {
             pthread_mutex_unlock(a->mutex);
             erroreInput("Errore: Indice del buffer non valido.\n");
         }
+
+        // DEBUG: Stampa stato del buffer prima della lettura
+        printf("DEBUG (Consumatore): Buffer stato [");
+        for (int i = 0; i < bufferDim; i++) {
+            printf("%d ", a->buffer[i]);
+        }
+        printf("], pcindex: %d\n", *(a->pcindex));
+
         // prende i nodi dal buffer
-    nu = a->buffer[*(a->pcindex)%(bufferDim)];
-    *(a->pcindex) = (*(a->pcindex)+1)%(bufferDim);
-    ne = a->buffer[*(a->pcindex)%(bufferDim)];
-    *(a->pcindex) = (*(a->pcindex)+1)%(bufferDim);
-        pthread_mutex_unlock(a->mutex);
-        sem_post(a->sem_free_slots);
+        nu = a->buffer[ccindex%(bufferDim)];
+        ccindex = (ccindex+1)%(bufferDim);
+        ne = a->buffer[ccindex%(bufferDim)];
+        ccindex = (ccindex+1)%(bufferDim);
+            pthread_mutex_unlock(a->mutex);
+            sem_post(a->sem_free_slots);
 
         // controlla che siano finiti i dati da elaborare
         if (*(a->fineDati)) break; 
@@ -373,13 +382,33 @@ int main(int argc, char *argv[]) {
         printf("], pcindex: %d\n", pcindex);
         ni--;
         nj--;
+
+        if (buffer[pcindex % bufferDim] == -2) {
+            printf("DEBUG: Scrittura di un nuovo valore nel buffer.\n");
+        } else {
+            printf("WARNING: Sovrascrizione nel buffer su pcindex=%d, valore precedente=%d\n",
+                pcindex % bufferDim, buffer[pcindex % bufferDim]);
+        }
         if (ni>=0 && ni<g.N && nj>=0 && nj<g.N) {
+            if (buffer[pcindex % bufferDim] == -2) {
+                printf("DEBUG: Scrittura di un nuovo valore nel buffer.\n");
+            } else {
+                printf("WARNING: Sovrascrizione nel buffer su pcindex=%d, valore precedente=%d\n",
+                    pcindex % bufferDim, buffer[pcindex % bufferDim]);
+            }
+
             sem_wait(&sem_free_slots);
             pthread_mutex_lock(&mutex);
             pcindex = (pcindex + 1) % bufferDim;
             buffer[pcindex] = ni; // Scrive il nodo uscente
             pcindex = (pcindex + 1) % bufferDim;
             buffer[pcindex] = nj; // Scrive il nodo entrante
+            // DEBUG: Stampa stato del buffer dopo la scrittura
+            printf("DEBUG (Produttore): Buffer stato [");
+            for (int i = 0; i < bufferDim; i++) {
+                printf("%d ", buffer[i]);
+            }
+            printf("], pcindex: %d\n", pcindex);
             pthread_mutex_unlock(&mutex);
             sem_post(&sem_data_items);
             archi++;
@@ -406,6 +435,12 @@ int main(int argc, char *argv[]) {
         pcindex++;
         buffer[pcindex % bufferDim] = -1;
         pcindex++;
+        // DEBUG: Stampa stato del buffer dopo la scrittura
+        printf("DEBUG (Produttore): Buffer stato [");
+        for (int i = 0; i < bufferDim; i++) {
+            printf("%d ", buffer[i]);
+        }
+        printf("], pcindex: %d\n", pcindex);
         pthread_mutex_unlock(&mutex);
         sem_post(&sem_data_items);
     }
