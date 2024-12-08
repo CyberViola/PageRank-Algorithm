@@ -241,6 +241,7 @@ void *consumatori(void *arg) {
         // controlla che siano finiti i dati da elaborare
         if (*(a->fineDati)) break; 
         if (nu==-1 && ne==-1) break;
+        printf("Controllando nodo: nu=%d, ne=%d\n", nu, ne);
         if (nu<0 || nu>=a->g->N || ne<0 || ne>=a->g->N) {
             erroreInput("Errore: Nodo non valido.");
         }
