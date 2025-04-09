@@ -28,18 +28,18 @@ Implemented using multithreading, producer-consumer with a shared buffer mechani
 
 ## 📥 Input Format
 
-The program accepts directed graphs in **Matrix Market format (`.mtx`)**, supporting the following:
+The program accepts directed graphs in **Matrix Market format (`.mtx`)**, supporting the following syntax:
 
 ```text
 %%MatrixMarket matrix coordinate pattern general
 % Comments
 N N E     % nodes, nodes, edges
-1 2       % edge from node 1 → 2
-3 1       % edge from node 3 → 1
+1 2       % edge from nodes 1 → 2
+3 1       % edge from nodes 3 → 1
+2,4       % edge from nodes 2 → 4
+5,3       % edge from nodes 5 → 3
 ...
 ```
-
-Space and comma separations are both supported
 
 ---
 
