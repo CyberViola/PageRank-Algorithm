@@ -71,7 +71,7 @@ make
 
 ---
 
-## 📊 Expected output
+## 📊 Expected Output
 
 Example: 
 ```bash
@@ -85,3 +85,10 @@ Top 3 nodes:
 41909 0.000912
 163075 0.000895
 ```
+
+---
+
+## ⚠️ Platform Compatibility
+
+This program was developed and used in **Linux**, may have incompatibilities on Windows or macOS.
+
