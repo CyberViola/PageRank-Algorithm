@@ -2,7 +2,7 @@
 
 ## 📝 Description
 
-C implementation of the PageRank algorithm, developed as part of the *Laboratorio 2* course at the University of Pisa, under the supervision of Professor Giovanni Manzini.  
+C implementation of the PageRank algorithm, developed as part of the *Laboratorio 2* course at the *University of Pisa*, under the supervision of *Professor Giovanni Manzini*.  
 Implemented using multithreading, producer-consumer with a shared buffer mechanism and thread-based computation. It begins by reading a directed graph from an input file, parsing nodes and edges information to build an internal graph structure. The PageRank values of the graph are computed iteratively. A set of threads is launched to independently calculate the PageRank values for different node ranges. The process continues until either convergence is reached within a specified error threshold or a maximum number of iterations is completed. The algorithm as a result shows the number of nodes and edges (included dead-end nodes), the number of iterations performed, the final sum of ranks and the top K nodes with the highest PageRank scores.
 
 ---
