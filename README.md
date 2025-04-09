@@ -10,11 +10,12 @@ PageRank has a wide range of real-world applications: nodes in the graph may rep
 
 ## 📑 Index
 
-- [Features](#-features)
+- [Features](#features)
 - [Input Format](#input-format)
 - [Usage](#usage)
 - [Parameters](#parameters)
 - [Expected Output](#expected-output)
+- [Platform Compatibility](#platform-compatibility)
 
 ---
 
