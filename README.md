@@ -39,6 +39,7 @@ N N E     % nodes, nodes, edges
 
 % or
 
+N,N E     % nodes,nodes, edges
 2,4       % edge from nodes 2 → 4
 5,3       % edge from nodes 5 → 3
 ...
