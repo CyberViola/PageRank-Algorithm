@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void erroreFile(const char *testo);
-void erroreInput(const char *testo);
-void erroreMemoria(const char *testo);
-void erroreSegnale(const char *testo);
+void fileError(const char *testo);
+void inputError(const char *testo);
+void memoryError(const char *testo);

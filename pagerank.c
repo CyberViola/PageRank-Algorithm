@@ -10,204 +10,173 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include "structure.h"
+#include "structure.h"  
 #include "xerrori.h"
 
-statoProgramma stato;
-int bufferDim;
+int sizeBuffer;
 
-// gestione del segnale 
-void gestoreSegnale(int s) {
-    if (s==SIGUSR1) {
-        pthread_mutex_lock(&stato.signal_mutex);
-        int nodoMaxPR = 0;
-        double valorePR = stato.vettoreX[0];
-        // ricerca nodo con valore massimo di pagerank
-        for (int i=1; i<stato.N; i++) {
-            if (stato.vettoreX[i]>valorePR) {
-                valorePR = stato.vettoreX[i];
-                nodoMaxPR = i;
-            }
-        }
-        fprintf(stderr, "Iterazione corrente: %d\n", stato.iterazione);
-        fprintf(stderr, "Nodo con PageRank massimo: %d\n", nodoMaxPR);
-        fprintf(stderr, "Valore PageRank: %.6f\n", valorePR);
-        pthread_mutex_unlock(&stato.signal_mutex);
-    }
-}
-
-// lettura del grafo
-void lettura(const char *fileinput, grafo *g, int *numArchi) {
-    FILE *file = fopen(fileinput, "r");
+// graph read
+void graphRead(const char *fileInput, graph *g, int *numEdges) {
+    FILE *file = fopen(fileInput, "r");
     if (file==NULL) {
-        erroreFile("Errore apertura file");
+        fileError("Error: input file opening");
     }
 
-    char linea[100];
+    char line[256];
     int r, c, n;
-    bool lineaDati = false; // per la lettura della matrice
-    *numArchi = 0;
+    bool dataLine = false; // to read the matrix
+    *numEdges = 0;
 
-    while (fgets(linea, sizeof(linea), file)!=NULL) {
-        // ignora le linee che iniziano con %
-        if (linea[0]=='%') {
+    while (fgets(line, sizeof(line), file)!=NULL) {
+        // ignore lines that start with %
+        if (line[0]=='%' || line[0]=='\n') {
             continue;
+        }
+
+        for (char *v = line; *v; v++) {
+            if (*v==',') *v=' ';
+        }
+        
+        if (!dataLine) {
+            // read the line containing the number of nodes and edges
+            if (sscanf(line, "%d %d %d", &r, &c, &n)!=3) {
+                inputError("Error: invalid input.\n");
+            }
+            dataLine = true;
+
+            g->N = r; // graph nodes
+            g->out = malloc(g->N*sizeof(int)); // outgoing edges
+            g->in = malloc(g->N*sizeof(inmap)); // incoming edges
+            if (g->out==NULL || g->in==NULL) {
+                memoryError("Memory allocation error for g->out or g->in");
+            }
+
+            // nodes initialization
+            for (int i=0; i<g->N; i++) {
+                g->out[i] = 0;
+                g->in[i].nodesArray = NULL;
+                g->in[i].numEdges = 0;
+                g->in[i].maxSize = 0;
+            }
         } else {
-            if (!lineaDati) {
-                // lettura della linea contenente il numero di nodi ed archi
-                if (sscanf(linea, "%d %d %d", &r, &c, &n)!=3) {
-                    erroreInput("Errore: Input non valido.\n");
-                }
-                lineaDati = true;
+            // read edges between nodes
+            int i=0; // node 1
+            int j=0; // node 2
 
-                g->N = r; // nodi nel grafo
-                g->out = malloc(g->N*sizeof(int)); // archi uscenti
-                g->in = malloc(g->N*sizeof(inmap)); // archi entranti
-                if (g->out==NULL || g->in==NULL) {
-                    erroreMemoria("Errore di allocazione memoria per g->out o g->in");
-                }
+            if (sscanf(line, "%d %d", &i, &j)!=2) {
+                inputError("Error: invalid input.\n");
+            }
+            i--;
+            j--;
 
-                // per ogni nodo si inizializza tutto
-                for (int i=0; i<g->N; i++) {
-                    g->out[i] = 0;
-                    g->in[i].arrayNodi = NULL;
-                    g->in[i].numArchi = 0;
-                    g->in[i].maxDim = 0;
-                }
-            } else {
-                // lettura degli archi tra i nodi
-                int i = 0; // nodo 1
-                int j = 0; // nodo 2
-                if (sscanf(linea, "%d %d", &i, &j)!=2) {
-                    erroreInput("Errore: Input non valido.\n");
-                }
-                i--;
-                j--;
-                if (i<0 || i>=g->N || j<0 || j>=g->N) {
-                    erroreInput("Errore: Archi non validi.\n");
-                }
+            if (i<0 || i>=g->N || j<0 || j>=g->N) {
+                inputError("Error: Invalid edges.\n");
+            }
 
-                if (i!=j) {  
-                    // controllo archi ripetuti
-                    bool doppio = false;
-                    for (int k=0; k< g->in[j].numArchi; k++) {
-                        if (g->in[j].arrayNodi[k]==i) {
-                            doppio = true;
-                            break;
-                        }
-                    }
-                    if (!doppio) {
-                        // controllo nuovi archi
-                        g->out[i]++;
-                        if (g->in[j].numArchi == g->in[j].maxDim) {
-                            g->in[j].maxDim = (g->in[j].maxDim==0) ? 1 : g->in[j].maxDim*2;
-                            g->in[j].arrayNodi = realloc(g->in[j].arrayNodi, g->in[j].maxDim*sizeof(int));
-                            if (g->in[j].arrayNodi==NULL) {
-                                erroreMemoria("Errore realloc");
-                            }
-                        }
-                        g->in[j].arrayNodi[g->in[j].numArchi++]=i;
-                        (*numArchi)++;
+            if (i!=j) {  
+                // add edge
+                g->out[i]++;
+                if (g->in[j].numEdges == g->in[j].maxSize) {
+                    g->in[j].maxSize = (g->in[j].maxSize==0) ? 1 : g->in[j].maxSize*2;
+                    g->in[j].nodesArray = realloc(g->in[j].nodesArray, g->in[j].maxSize*sizeof(int));
+                    if (g->in[j].nodesArray==NULL) {
+                        memoryError("Error realloc");
                     }
                 }
+                g->in[j].nodesArray[g->in[j].numEdges++]=i;
+                (*numEdges)++;
             }
         }
+    
     }
     fclose(file);
 }
 
-// threads per calcolo pagerank
-void *threadsPageRank(void *arg) {
-    datiThreads *dato = (datiThreads *)arg;
-    grafo *g = dato->g;
-    double *X = dato->X;
-    double *X1 = dato->X1;
-    double d = dato->d;
-    double damping_factor = dato->damping_factor;
+// threads to calculating pagerank
+void *pagerankThreads(void *arg) {
+    dataThreads *data = (dataThreads *)arg;
+    graph *g = data->g;
+    double *X = data->X;
+    double *X1 = data->X1;
+    double d = data->d;
+    double damping_factor = data->damping_factor;
 
-    for (int i=dato->inizio; i<dato->fine; i++) {
+    for (int i=data->start; i<data->end; i++) {
         X1[i]=0.0;
-        for (int j=0; j< g->in[i].numArchi; j++) {
-            int nodoEntrante = g->in[i].arrayNodi[j];
-            X1[i] += d*X[nodoEntrante]/g->out[nodoEntrante];
+        for (int j=0; j<g->in[i].numEdges; j++) {
+            int incomingNode = g->in[i].nodesArray[j];
+            X1[i] += d*X[incomingNode]/g->out[incomingNode];
         }
         X1[i] += damping_factor;
     }
     pthread_exit(NULL);
 }
 
-// calcolo pagerank
-double *pagerank(grafo *g, double d, double eps, int maxiter, int taux, int *numiter) {
+// calculate pagerank
+double *pagerank(graph *g, double d, double eps, int maxiter, int taux, int *numiter) {
     int N = g->N;
     double *X = malloc(N * sizeof(double));
     double *X1 = malloc(N * sizeof(double));
     double *Y = malloc(N * sizeof(double));
-    for (int i = 0; i < N; i++) {
-        X[i] = 1.0 / N;
+    for (int i=0; i<N; i++) {
+        X[i] = 1.0/N;
         X1[i] = 0.0;
         Y[i] = 0.0;
     }
     double damping_factor = (1.0-d)/N;
 
     int iter = 0;
-    bool finito = false;
+    bool finished = false;
 
-    while (!finito && iter<maxiter) {
+    while (!finished && iter<maxiter) {
         pthread_t threads[taux];
-        datiThreads tdata[taux];
-        int segmento = (N+taux-1)/taux;
+        dataThreads tdata[taux];
+        int segment = (N+taux-1)/taux;
 
-        // suddivisione threads per calcolare pagerank
+        // threads division to calculate pagerank
         for (int i=0; i<taux; i++) {
             tdata[i].g = g;
             tdata[i].X = X;
             tdata[i].X1 = X1;
             tdata[i].d = d;
             tdata[i].damping_factor = damping_factor;
-            tdata[i].inizio = i*segmento;
-            tdata[i].fine = (i+1)*segmento;
-            if (tdata[i].fine>N) tdata[i].fine = N;
-            pthread_create(&threads[i], NULL, threadsPageRank, &tdata[i]);
+            tdata[i].start = i*segment;
+            tdata[i].end = (i+1)*segment;
+            if (tdata[i].end>N) tdata[i].end = N;
+            pthread_create(&threads[i], NULL, pagerankThreads, &tdata[i]);
         }
 
-        // attesa terminazione threads
+        // wait threads finish
         for (int i=0; i<taux; i++) {
             pthread_join(threads[i], NULL);
         }
 
-        // gestione nodi deadend
-        double nodiDeadend = 0.0;
+        // deadend nodes handle
+        double deadendNodes = 0.0;
         for (int i=0; i<N; i++) {
             if (g->out[i]==0) {
-                nodiDeadend += d*X[i]/N;
+                deadendNodes += d*X[i]/N;
             }
         }
         for (int i=0; i<N; i++) {
-            X1[i] += nodiDeadend;
+            X1[i] += deadendNodes;
         }
 
-        // calcolo errore per convergenza
+        // calculate convergence error
         double error = 0.0;
         for (int i=0; i<N; i++) {
             error += fabs(X1[i]-X[i]);
         }
         if (error <= eps) {
             *numiter = iter+1;
-            finito = true;
+            finished = true;
         }
 
-        for (int i=0; i<N; i++) {
-            X[i] = X1[i];
-            stato.vettoreX[i] = X[i];
-        }
+        double *tmp = X;
+        X = X1;
+        X1 = tmp;
 
         iter++;
-
-        // aggiornamento variabili per segnale
-        pthread_mutex_lock(&stato.signal_mutex);
-        stato.iterazione = iter;
-        memcpy(stato.vettoreX, X, N*sizeof(double));
-        pthread_mutex_unlock(&stato.signal_mutex);
     }
 
     free(X1);
@@ -216,58 +185,49 @@ double *pagerank(grafo *g, double d, double eps, int maxiter, int taux, int *num
     return X;
 }
 
-// consumatori
-void *consumatori(void *arg) {
-    datiConsumatori *a = (datiConsumatori *)arg;
+// consumers
+void *consumers(void *arg) {
+    dataConsumer *a = (dataConsumer *)arg;
 
-    int nu; // nodo i con arco uscente
-    int ne; // nodo j con arco entrante
+    int nu; // node i with outgoing edge
+    int ne; // node j with incoming edge
     int bufferIndex = 0;
 
     while (true) {
         sem_wait(a->sem_data_items);
         pthread_mutex_lock(a->mutex);
-        if (*(a->pcindex)<0 || *(a->pcindex) >= bufferDim) {
+        if (*(a->pcindex)<0 || *(a->pcindex) >= sizeBuffer) {
             pthread_mutex_unlock(a->mutex);
-            erroreInput("Errore: Indice del buffer non valido.\n");
+            inputError("Error: invalid buffer index.\n");
         }
 
-        // prende i nodi dal buffer
-        nu = a->buffer[bufferIndex % bufferDim];
-        bufferIndex = (bufferIndex+1) % bufferDim;
-        ne = a->buffer[bufferIndex % bufferDim];
-        bufferIndex = (bufferIndex+1) % bufferDim;
-            pthread_mutex_unlock(a->mutex);
-            sem_post(a->sem_free_slots);
+        // take nodes from the buffer
+        nu = a->buffer[bufferIndex % sizeBuffer];
+        bufferIndex = (bufferIndex+1) % sizeBuffer;
+        ne = a->buffer[bufferIndex % sizeBuffer];
+        bufferIndex = (bufferIndex+1) % sizeBuffer;
+        pthread_mutex_unlock(a->mutex);
+        sem_post(a->sem_free_slots);
 
-        // controlla che siano finiti i dati da elaborare
-        if (*(a->fineDati)) break; 
+        // check if data processing is finished
+        if (*(a->endData)) break; 
         if (nu==-1 && ne==-1) break;
-        printf("Controllando nodo: nu=%d, ne=%d\n", nu, ne);
+
         if (nu<0 || nu>=a->g->N || ne<0 || ne>=a->g->N) {
-            erroreInput("Errore: Nodo non valido.");
+            inputError("Error: Invalid node.");
         }
+
         if (nu!=ne) {
             a->g->out[nu]++;
-            // verifica la presenza dell'arco
-            bool presente = false;
-            for (int i=0; i<(a->g->in[ne].numArchi); i++) {
-                if (a->g->in[ne].arrayNodi[i]==nu) {
-                    presente = true;
-                    break;
+            // add edge
+            if (a->g->in[ne].numEdges == a->g->in[ne].maxSize) {
+                a->g->in[ne].maxSize = (a->g->in[ne].maxSize==0) ? 1 : a->g->in[ne].maxSize*2;
+                a->g->in[ne].nodesArray = realloc(a->g->in[ne].nodesArray, a->g->in[ne].maxSize*sizeof(int));
+                if (a->g->in[ne].nodesArray==NULL) {
+                    memoryError("Realloc error");
                 }
             }
-            if (!presente) { 
-                // aggiunge lparco se non presente
-                if (a->g->in[ne].numArchi == a->g->in[ne].maxDim) {
-                    a->g->in[ne].maxDim = (a->g->in[ne].maxDim==0) ? 1 : a->g->in[ne].maxDim*2;
-                    a->g->in[ne].arrayNodi = realloc(a->g->in[ne].arrayNodi, a->g->in[ne].maxDim*sizeof(int));
-                    if (a->g->in[ne].arrayNodi==NULL) {
-                        erroreMemoria("Errore realloc");
-                    }
-                }
-                a->g->in[ne].arrayNodi[a->g->in[ne].numArchi++] = nu; 
-            }
+            a->g->in[ne].nodesArray[a->g->in[ne].numEdges++] = nu; 
         }
     }
     return NULL;
@@ -279,7 +239,7 @@ int main(int argc, char *argv[]) {
     double D = 0.9; // damping factor
     double E = 1.e-7; // max error
     int T = 3; // max error
-    const char *fileinput = NULL;
+    const char *fileInput = NULL;
 
     int opt;
     while ((opt = getopt(argc, argv, "k:m:d:e:t:")) != -1) {
@@ -300,70 +260,66 @@ int main(int argc, char *argv[]) {
                 T = atoi(optarg);
                 break;
             default:
-                erroreFile("Utilizzo: nome programma [-k K] [-m M] [-d D] [-e E] [-t T] file input.\n");
+                fileError("Use: program name [-k K] [-m M] [-d D] [-e E] [-t T] input file.\n");
         }
     }
 
     if (optind >= argc) {
-        erroreFile("File input assente\n");
+        fileError("Error: missing input file\n");
     }
 
-    // lettura del grafo
-    fileinput = argv[optind];
-    grafo g;
-    int numArchi = 0;
-    lettura(fileinput, &g, &numArchi);
+    // graph read
+    fileInput = argv[optind];
+    graph g;
+    int numEdges = 0;
+    graphRead(fileInput, &g, &numEdges);
 
-    // inizializzazione buffer e semafori
-    bufferDim = numArchi*2;
-    int *buffer = malloc(bufferDim*sizeof(int));
+    // buffer and semaphores initialization
+    sizeBuffer = numEdges*2;
+    int *buffer = malloc(sizeBuffer*sizeof(int));
+
     if (buffer == NULL) {
-        erroreMemoria("Errore allocazione buffer.");
+        memoryError("Buffer allocation error.");
     }
-    for (int i=0; i<bufferDim; i++) {
+    
+    for (int i=0; i<sizeBuffer; i++) {
         buffer[i] = -2;
     }
+
     int pcindex = 0;
     pthread_t t[T];
-    datiConsumatori a[T];
-    bool fineDati = false;
+    dataConsumer a[T];
+    bool endData = false;
     pthread_mutex_t mutex;
     sem_t sem_free_slots, sem_data_items;
     pthread_mutex_init(&mutex, NULL);
-    sem_init(&sem_free_slots, 0, bufferDim);
+    sem_init(&sem_free_slots, 0, sizeBuffer);
     sem_init(&sem_data_items, 0, 0);
 
-    // inizializzaizione il gestore dei segnali
-    pthread_mutex_init(&stato.signal_mutex, NULL);
-    stato.vettoreX = malloc(g.N*sizeof(double));
-    if (signal(SIGUSR1, gestoreSegnale)==SIG_ERR) {
-        erroreSegnale("Errore nella gestione del segnale.");
-    }
-
-    // creazione threads consumatori
+    // create consumer threads
     for (int i=0; i<T; i++) {
         a[i].g = &g;
         a[i].buffer = buffer;
         a[i].pcindex = &pcindex;
-        a[i].fineDati = &fineDati;
+        a[i].endData = &endData;
         a[i].mutex = &mutex;
         a[i].sem_free_slots = &sem_free_slots;
         a[i].sem_data_items = &sem_data_items;
         a[i].taux = T;
         a[i].d = D;
-        a[i].maxiter = M;
+        a[i].maxIter = M;
         a[i].eps = E;
-        pthread_create(&t[i], NULL, consumatori, &a[i]);
+        pthread_create(&t[i], NULL, consumers, &a[i]);
     }
 
-    // apertura file
-    FILE *file = fopen(fileinput, "r");
+    // file opening
+    FILE *file = fopen(fileInput, "r");
     if (file == NULL) {
-        erroreFile("Errore apertura file.");
+        fileError("Error: input file opening.");
     }
 
-    // lettura dati
-    int archi = 0;
+    // read data
+    int edges = 0;
     int ni, nj;
     while (fscanf(file, "%d %d", &ni, &nj)==2) {
         ni--;
@@ -372,67 +328,67 @@ int main(int argc, char *argv[]) {
         if (ni>=0 && ni<g.N && nj>=0 && nj<g.N) {
             sem_wait(&sem_free_slots);
             pthread_mutex_lock(&mutex);
-            pcindex = (pcindex+1)%bufferDim;
-            buffer[pcindex] = ni; // scrittura nodo uscente
-            pcindex = (pcindex+1)%bufferDim;
-            buffer[pcindex] = nj; // scrittura nodo entrante
+            pcindex = (pcindex+1)%sizeBuffer;
+            buffer[pcindex] = ni; // write outgoing node
+            pcindex = (pcindex+1)%sizeBuffer;
+            buffer[pcindex] = nj; // write incoming node
             pthread_mutex_unlock(&mutex);
             sem_post(&sem_data_items);
-            archi++;
+            edges++;
         } else {
-            erroreInput("Errore: Archi non validi.\n");
+            inputError("Error: Invalid edges.\n");
         }
     }
 
-    // chiusura file
+    // file closing
     fclose(file);
 
-    // segnale della fine dei dati
+    // signal of data end
     for (int i=0; i<T; i++) {
         sem_wait(&sem_free_slots);
         pthread_mutex_lock(&mutex);
-        buffer[pcindex % bufferDim] = -1;
+        buffer[pcindex % sizeBuffer] = -1;
         pcindex++;
-        buffer[pcindex % bufferDim] = -1;
+        buffer[pcindex % sizeBuffer] = -1;
         pcindex++;
         pthread_mutex_unlock(&mutex);
         sem_post(&sem_data_items);
     }
-    fineDati = true;
+    endData = true;
 
-    // attesa terminazioe threads
+    // wait thread finish
     for (int i=0; i<T; i++) {
         pthread_join(t[i], NULL);
     }
 
-    // calcolo pagerank
+    // calculate pagerank
     int numiter = 0;
     double *rank = pagerank(&g, D, E, M, T, &numiter);
 
-    // stampa dei risultati
+    // results print
     printf("Number of nodes: %d\n", g.N);
-    int nodiDeadend = 0;
+    int deadendNodes = 0;
     for (int i=0; i<g.N; i++) {
         if (g.out[i]==0) {
-            nodiDeadend++;
+            deadendNodes++;
         }
     }
-    printf("Number of dead-end nodes: %d\n", nodiDeadend);
-    printf("Number of valid arcs: %d\n", numArchi);
+    printf("Number of dead-end nodes: %d\n", deadendNodes);
+    printf("Number of valid arcs: %d\n", numEdges);
     if (numiter==M) {
         printf("Did not converge after %d iterations\n", M);
     } else {
         printf("Converged after %d iterations\n", numiter);
     }
 
-    // somma rank nodi
+    // sum nodes rank
     double sumRanks = 0.0;
     for (int i=0; i<g.N; i++) {
         sumRanks += rank[i];
     }
     printf("Sum of ranks: %.4f\n", sumRanks);
 
-    // stampa dei nodi con rank più alto
+    // print nodes with highest rank
     printf("Top %d nodes:\n", K);
     for (int i=1; i<=K && i<=g.N; i++) {
         int maxIndex = 0;
@@ -447,16 +403,14 @@ int main(int argc, char *argv[]) {
         rank[maxIndex] = -1;
     }
 
-    // libera memoria e distruzione semafori e mutex
+    // free memory and destroy semaphores and mutex
     free(buffer);
     for (int i=0; i<g.N; i++) {
-        free(g.in[i].arrayNodi);
+        free(g.in[i].nodesArray);
     }
     free(g.in);
     free(g.out);
     free(rank);
-    free(stato.vettoreX);
-    pthread_mutex_destroy(&stato.signal_mutex);
     sem_destroy(&sem_free_slots);
     sem_destroy(&sem_data_items);
     return 0;
