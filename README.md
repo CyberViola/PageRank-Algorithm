@@ -61,9 +61,9 @@ make
 |--------|--------------------------------------|----------------|
 | `-k`   | Number of top nodes to display       | `3`            |
 | `-m`   | Maximum number of iterations         | `100`          |
-| `-d`   | Damping factor (typically 0.85–0.9)  | `0.9`          |
-| `-e`   | Convergence threshold (epsilon)      | `1e-7`         |
-| `-t`   | Number of threads to use             | `3`            |
+| `-d`   | Damping factor                       | `0.9`          |
+| `-e`   | Convergence threshold                | `1e-7`         |
+| `-t`   | Number of auxiliary threads to use   | `3`            |
 
 ---
 
