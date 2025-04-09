@@ -1,32 +1,32 @@
-# definizione del compilatore e dei flag di compilazione
+# definition of compiler and compilation flags
 CC=gcc
 CFLAGS=-std=c11 -Wall -g -O -pthread
 LDLIBS=-lm -lrt -pthread
 
-# nome dell'eseguibile da creare
+# executable name
 EXEC=pagerank
 
-# file sorgente
+# source files
 SRCS=pagerank.c xerrori.c
 
-# file intestazione
+# header files
 HEADERS=structure.h xerrori.h
 
-# file oggetto
+# object files
 OBJS=$(SRCS:.c=.o)
 
-# primo target: creazione eseguibile
+# first target: executable creation
 all: $(EXEC)
 
-# regola per creare l'eseguibile
+# executable creation rule
 $(EXEC): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-# regola per creare file oggetto da file sorgente
+# object files from source files creation rules
 %.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $<
 
-# regola per pulire file oggetto e eseguibile
+# object files and executable cleaning rule
 clean:
 	rm -f *.o $(EXEC)
 	
