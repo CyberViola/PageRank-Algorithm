@@ -73,13 +73,15 @@ make
 
 ## 📊 Expected output
 
+Example: 
 ```bash
 Number of nodes: 916428
 Number of dead-end nodes: 176974
-Converged after 45 iterations
+Number of valid arcs: 5105039
+Converged after 62 iterations / Did not converge after 62 iterations
 Sum of ranks: 1.0000
 Top 3 nodes:
-42  0.000123
-12  0.000118
-24  0.000115
+597621 0.000915
+41909 0.000912
+163075 0.000895
 ```
