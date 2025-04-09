@@ -21,7 +21,7 @@ Implemented using multithreading, producer-consumer with a shared buffer mechani
 
 - 🔀 Parallel computation
 - 🔤 Supports space and comma delimited `.mtx` files
-- 🔧 Handles deadend nodes
+- 🔧 Handles dead-end nodes
 - ⚙️ Configurable parameters
 
 ---
