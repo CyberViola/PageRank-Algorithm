@@ -36,6 +36,9 @@ The program accepts directed graphs in **Matrix Market format (`.mtx`)**, suppor
 N N E     % nodes, nodes, edges
 1 2       % edge from nodes 1 → 2
 3 1       % edge from nodes 3 → 1
+
+% or
+
 2,4       % edge from nodes 2 → 4
 5,3       % edge from nodes 5 → 3
 ...
